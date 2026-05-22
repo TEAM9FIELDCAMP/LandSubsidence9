@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUBTRACK – Team 9 Field Camp 2026</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,300;0,400;0,600;0,700;0,800;1,400&family=Playfair+Display:ital,wght@0,700;1,700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --g0:#030d07;--g1:#061a0e;--g2:#0a2916;--g3:#0f3d1f;--g4:#165c2d;
+  --g5:#1e7d3e;--g6:#27a352;--g7:#34c966;--g8:#5de08a;--g9:#a8f0c2;
+  --acc:#c8ff72;--gold:#f5c842;--white:#f0fff4;--muted:#4a7a5a;
+  --border:rgba(39,163,82,0.3);--panel:rgba(3,13,7,0.94);--radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:'Poppins',sans-serif;background:var(--g0);color:var(--white)}
+#app{display:flex;flex-direction:column;height:100vh}
+
+/* ══ HEADER ══ */
+#header{
+  height:62px;flex-shrink:0;
+  background:linear-gradient(90deg,var(--g1) 0%,#081f10 40%,var(--g1) 100%);
+  border-bottom:1.5px solid var(--g5);
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 18px;position:relative;overflow:hidden;
+}
+#header::after{
+  content:'';position:absolute;inset:0;
+  background:repeating-linear-gradient(90deg,transparent,transparent 60px,rgba(39,163,82,0.04) 60px,rgba(39,163,82,0.04) 61px);
+  pointer-events:none;
+}
+.h-left{display:flex;align-items:center;gap:12px;z-index:1}
+#logo-img{height:42px;width:42px;object-fit:contain;border-radius:8px;border:1px solid var(--g5)}
+.h-logo-fallback{
+  height:42px;width:42px;border-radius:8px;border:1.5px solid var(--g6);
+  background:linear-gradient(135deg,var(--g3),var(--g5));
+  display:none;align-items:center;justify-content:center;
+  font-size:10px;font-weight:700;color:var(--acc);text-align:center;line-height:1.2;
+}
+.h-center{position:absolute;left:50%;transform:translateX(-50%);display:flex;flex-direction:column;align-items:center;z-index:1}
+.h-title{
+  font-family:'Playfair Display',serif;font-style:italic;
+  font-size:26px;font-weight:700;letter-spacing:4px;
+  background:linear-gradient(90deg,var(--acc),#fff 45%,var(--gold));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;
+}
+.h-sub{font-size:9px;color:var(--g8);letter-spacing:2px;text-transform:uppercase;margin-top:2px}
+.h-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;z-index:1}
+.h-team{font-style:italic;font-size:13px;font-weight:600;color:var(--gold);letter-spacing:0.5px}
+.h-badges{display:flex;gap:6px}
+.badge{font-size:9px;padding:2px 9px;border-radius:20px;letter-spacing:0.6px;font-weight:600;background:rgba(39,163,82,0.15);border:1px solid var(--border);color:var(--g8)}
+.badge.live{color:var(--acc);border-color:rgba(200,255,114,0.4);background:rgba(200,255,114,0.08)}
+.live-dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--acc);margin-right:4px;animation:blink 1.4s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1;box-shadow:0 0 4px var(--acc)}50%{opacity:0.3;box-shadow:none}}
+
+/* ══ MAP ══ */
+#map-container{flex:1;position:relative;min-height:0}
+#map{width:100%;height:100%}
+.leaflet-tile{filter:brightness(0.55) saturate(0.3) hue-rotate(80deg)}
+.leaflet-control-attribution{display:none}
+
+/* ══ TOOLBAR ══ */
+#toolbar{position:absolute;top:14px;left:14px;z-index:1000;display:flex;flex-direction:column;gap:7px}
+.tool-btn{
+  background:var(--panel);border:1px solid var(--border);color:var(--g8);
+  font-family:'Poppins',sans-serif;font-size:11px;font-weight:600;
+  padding:8px 15px;border-radius:var(--radius);cursor:pointer;
+  display:flex;align-items:center;gap:8px;white-space:nowrap;transition:all 0.22s;
+}
+.tool-btn:hover{background:rgba(39,163,82,0.18);border-color:var(--g6);color:var(--acc)}
+.tool-btn.active{background:rgba(39,163,82,0.25);border-color:var(--g7);color:var(--acc);box-shadow:0 0 14px rgba(39,163,82,0.2)}
+.tool-btn.reset-btn{color:var(--gold);border-color:rgba(245,200,66,0.35)}
+.tool-btn.reset-btn:hover{background:rgba(245,200,66,0.12);border-color:var(--gold);color:var(--gold)}
+
+/* ══ STATS ══ */
+#stats-panel{position:absolute;top:14px;right:14px;z-index:1000;display:flex;flex-direction:column;gap:6px;width:175px}
+.stat-card{background:var(--panel);border:1px solid var(--border);border-radius:var(--radius);padding:9px 13px}
+.stat-card.accent{border-color:rgba(200,255,114,0.35)}
+.stat-card.gold{border-color:rgba(245,200,66,0.35)}
+.stat-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.9px;margin-bottom:3px}
+.stat-value{font-size:19px;font-weight:700;color:var(--g7);line-height:1}
+.stat-card.accent .stat-value{color:var(--acc);font-size:13px}
+.stat-card.gold .stat-value{color:var(--gold)}
+.stat-unit{font-size:9px;color:#2d5038;margin-top:2px}
+
+/* ══ LEGEND ══ */
+#legend{
+  position:absolute;bottom:100px;left:14px;z-index:1000;
+  background:var(--panel);border:1px solid var(--border);
+  border-radius:var(--radius);padding:11px 15px;min-width:180px;
+}
+#legend h4{font-size:10px;color:var(--muted);margin-bottom:9px;text-transform:uppercase;letter-spacing:0.9px;font-weight:600}
+.legend-bar{height:11px;border-radius:4px;margin-bottom:7px}
+.legend-ticks{display:flex;justify-content:space-between;font-size:9px;font-weight:600;font-family:'Poppins',sans-serif}
+.legend-sub{display:flex;justify-content:space-between;font-size:9px;color:#2d5038;margin-top:5px}
+
+/* ══ TIME SERIES ══ */
+#ts-panel{
+  display:none;position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  width:390px;max-width:90vw;
+  background:rgba(3,13,7,0.98);border:1px solid rgba(39,163,82,0.5);
+  border-radius:14px;padding:16px;z-index:2000;
+  box-shadow:0 6px 40px rgba(0,0,0,0.6);
+}
+.panel-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+#ts-title{font-size:11px;color:var(--g8);font-weight:600;line-height:1.5}
+.close-btn{cursor:pointer;color:var(--muted);font-size:18px;line-height:1;padding:0 4px;flex-shrink:0;transition:color 0.2s}
+.close-btn:hover{color:var(--white)}
+#ts-canvas{width:100%!important;height:155px!important}
+.ts-chips{display:flex;gap:8px;margin-top:12px}
+.ts-chip{flex:1;border-radius:8px;padding:7px 8px;text-align:center;background:rgba(15,61,31,0.5);border:1px solid var(--border)}
+.ts-chip.c2{border-color:rgba(200,255,114,0.3);background:rgba(200,255,114,0.05)}
+.ts-chip.c3{border-color:rgba(245,200,66,0.3);background:rgba(245,200,66,0.05)}
+.ts-chip-label{font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:0.5px}
+.ts-chip-val{font-size:15px;font-weight:700;color:var(--g7)}
+.ts-chip.c2 .ts-chip-val{color:var(--acc)}
+.ts-chip.c3 .ts-chip-val{color:var(--gold)}
+.ts-chip-unit{font-size:9px;color:#2d5038}
+.ts-note{margin-top:9px;font-size:9px;color:var(--muted);text-align:center;line-height:1.5;border-top:1px solid rgba(39,163,82,0.12);padding-top:8px}
+
+/* ══ INFO POPUP ══ */
+#info-popup{
+  display:none;position:absolute;bottom:100px;right:14px;
+  width:255px;max-height:70vh;overflow-y:auto;
+  background:var(--panel);border:1px solid rgba(39,163,82,0.4);
+  border-radius:14px;padding:16px;z-index:2000;box-shadow:0 6px 30px rgba(0,0,0,0.5);
+}
+#info-popup h4{font-size:12px;color:var(--acc);margin-bottom:12px;font-weight:700;letter-spacing:0.5px}
+.info-row{display:flex;justify-content:space-between;align-items:flex-start;font-size:11px;padding:5px 0;border-bottom:1px solid rgba(39,163,82,0.1)}
+.info-row:last-of-type{border:none}
+.info-key{color:var(--muted);flex-shrink:0}
+.info-val{color:var(--white);font-weight:600;text-align:right;font-size:10px}
+.btn-close-info{width:100%;margin-top:12px;padding:7px;background:rgba(39,163,82,0.12);border:1px solid var(--border);color:var(--g8);border-radius:8px;cursor:pointer;font-size:11px;font-family:'Poppins',sans-serif;font-weight:600;transition:all 0.2s}
+.btn-close-info:hover{background:rgba(39,163,82,0.25);color:var(--acc)}
+
+/* ══ CONTROLS ══ */
+#controls{
+  background:linear-gradient(0deg,var(--g0) 0%,var(--g1) 100%);
+  border-top:1.5px solid rgba(39,163,82,0.4);
+  padding:10px 18px 12px;flex-shrink:0;
+}
+#date-display{text-align:center;font-size:21px;font-weight:700;color:var(--acc);margin-bottom:8px;letter-spacing:4px;text-shadow:0 0 20px rgba(200,255,114,0.35)}
+.ctrl-row{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+#date-slider{flex:1;-webkit-appearance:none;appearance:none;height:5px;border-radius:3px;background:linear-gradient(to right,var(--g5),var(--g3));cursor:pointer;outline:none}
+#date-slider::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--acc);border:2px solid var(--g0);cursor:pointer;box-shadow:0 0 8px rgba(200,255,114,0.5)}
+.ctrl-btn{background:rgba(15,61,31,0.5);border:1px solid var(--border);color:var(--g8);padding:6px 14px;border-radius:7px;cursor:pointer;font-size:12px;font-weight:600;font-family:'Poppins',sans-serif;flex-shrink:0;transition:all 0.2s}
+.ctrl-btn:hover{background:rgba(39,163,82,0.25);border-color:var(--g6);color:var(--acc)}
+.ctrl-btn.primary{background:var(--g4);color:var(--acc);border-color:var(--g6)}
+.ctrl-btn.primary:hover{background:var(--g5)}
+#speed-select{background:rgba(3,13,7,0.9);border:1px solid var(--border);color:var(--g8);padding:5px 8px;border-radius:7px;font-size:11px;font-family:'Poppins',sans-serif;cursor:pointer}
+#epoch-info{text-align:center;font-size:10px;color:var(--muted)}
+
+/* ══ LOADING ══ */
+#loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(3,13,7,0.98);border:1px solid rgba(39,163,82,0.4);border-radius:16px;padding:32px 44px;text-align:center;z-index:3000;box-shadow:0 8px 40px rgba(0,0,0,0.7)}
+#loading p{color:var(--g8);font-size:15px;margin-bottom:4px;font-weight:600}
+#loading small{color:var(--muted);font-size:11px;line-height:1.8}
+.loader-bar{width:200px;height:3px;background:rgba(39,163,82,0.15);border-radius:2px;margin:14px auto 0;overflow:hidden}
+.loader-fill{height:100%;width:50%;background:var(--acc);border-radius:2px;animation:slide 1s infinite}
+@keyframes slide{0%{transform:translateX(-150%)}100%{transform:translateX(350%)}}
+
+/* ══ TOOLTIP ══ */
+.tt-green{background:rgba(3,13,7,0.97)!important;border:1px solid rgba(39,163,82,0.5)!important;color:var(--white)!important;border-radius:8px!important;padding:8px 12px!important;box-shadow:0 2px 16px rgba(0,0,0,0.5)!important;font-family:'Poppins',sans-serif!important}
+.tt-green::before{border-top-color:rgba(39,163,82,0.5)!important}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="h-left">
+      <img id="logo-img" src="logo_subtrack.png" alt="SUBTRACK"
+           onerror="this.style.display='none';document.getElementById('logo-fallback').style.display='flex'">
+      <div id="logo-fallback" class="h-logo-fallback">SUB<br>TRACK</div>
+    </div>
+    <div class="h-center">
+      <div class="h-title">SUBTRACK</div>
+      <div class="h-sub">Sentinel-1 InSAR · LiCSBAS · Surabaya</div>
+    </div>
+    <div class="h-right">
+      <div class="h-team">Team 9 Field Camp 2026</div>
+      <div class="h-badges">
+        <span class="badge live"><span class="live-dot"></span>LIVE</span>
+        <span class="badge">InSAR</span>
+        <span class="badge">2016–2025</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- MAP AREA -->
+  <div id="map-container">
+    <div id="map"></div>
+
+    <!-- LOADING -->
+    <div id="loading">
+      <p>⚡ Memuat Data Subsidence...</p>
+      <small>defor_sby.csv · kecamatan_sby.geojson<br>LiCSBAS InSAR Processing</small>
+      <div class="loader-bar"><div class="loader-fill"></div></div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div id="toolbar">
+      <button class="tool-btn active" id="btn-sub" onclick="setLayer('subsidence')">
+        🏙 Land Subsidence
+      </button>
+      <button class="tool-btn" id="btn-disp-sub" onclick="setLayer('disp-sub')">
+        📉 Displacement Penurunan
+      </button>
+      <button class="tool-btn" id="btn-disp" onclick="setLayer('displacement')">
+        📊 Displacement Kumulatif
+      </button>
+      <button class="tool-btn reset-btn" onclick="resetLayer()">
+        ↺ Reset Tampilan
+      </button>
+      <button class="tool-btn" onclick="toggleInfo()">
+        ℹ Info &amp; Metadata
+      </button>
+    </div>
+
+    <!-- STATS -->
+    <div id="stats-panel">
+      <div class="stat-card">
+        <div class="stat-label">Titik Pengukuran</div>
+        <div class="stat-value" id="pt-count">—</div>
+        <div class="stat-unit">measurement points</div>
+      </div>
+      <div class="stat-card accent">
+        <div class="stat-label">Tanggal Aktif</div>
+        <div class="stat-value" id="stat-date">—</div>
+      </div>
+      <div class="stat-card gold">
+        <div class="stat-label">Subsidence Maks</div>
+        <div class="stat-value" id="stat-max">—</div>
+        <div class="stat-unit">mm/tahun (laju penurunan)</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Total Epoch</div>
+        <div class="stat-value" id="stat-epochs">—</div>
+        <div class="stat-unit">akuisisi SAR</div>
+      </div>
+    </div>
+
+    <!-- LEGENDA -->
+    <div id="legend">
+      <h4 id="legend-title">Land Subsidence (mm/thn)</h4>
+      <div class="legend-bar" id="legend-bar"></div>
+      <div class="legend-ticks" id="legend-ticks"></div>
+      <div class="legend-sub" id="legend-sub">
+        <span>◎ Stabil (0)</span><span>▼ Turun Parah</span>
+      </div>
+    </div>
+
+    <!-- INFO POPUP -->
+    <div id="info-popup">
+      <h4>📡 Info &amp; Metadata</h4>
+
+      <div style="font-size:9px;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin:6px 0 4px;font-weight:700">Data &amp; Akuisisi</div>
+      <div class="info-row"><span class="info-key">Satelit</span><span class="info-val">Sentinel-1 A/B</span></div>
+      <div class="info-row"><span class="info-key">Pass / Track</span><span class="info-val">Ascending 054A</span></div>
+      <div class="info-row"><span class="info-key">Frame ID</span><span class="info-val">054A_09773_111213</span></div>
+      <div class="info-row"><span class="info-key">Periode</span><span class="info-val">Jan 2016 – Des 2025</span></div>
+      <div class="info-row"><span class="info-key">Epoch tersedia</span><span class="info-val">265</span></div>
+      <div class="info-row"><span class="info-key">Epoch digunakan</span><span class="info-val">201</span></div>
+      <div class="info-row"><span class="info-key">Panjang gelombang</span><span class="info-val">0.0555 m (C-band)</span></div>
+      <div class="info-row"><span class="info-key">Resolusi spasial</span><span class="info-val">~110 × 110 m</span></div>
+
+      <div style="font-size:9px;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin:8px 0 4px;font-weight:700">Interferogram</div>
+      <div class="info-row"><span class="info-key">Total IFG</span><span class="info-val">2086</span></div>
+      <div class="info-row"><span class="info-key">IFG digunakan</span><span class="info-val">428</span></div>
+      <div class="info-row"><span class="info-key">IFG dibuang</span><span class="info-val">1658 (79.5%)</span></div>
+      <div class="info-row"><span class="info-key">Ref area</span><span class="info-val">182:183 / 372:373</span></div>
+
+      <div style="font-size:9px;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin:8px 0 4px;font-weight:700">Processing</div>
+      <div class="info-row"><span class="info-key">Software</span><span class="info-val">LiCSBAS</span></div>
+      <div class="info-row"><span class="info-key">Metode inversi</span><span class="info-val">NSBAS Least Square</span></div>
+      <div class="info-row"><span class="info-key">Gamma</span><span class="info-val">0.0001</span></div>
+      <div class="info-row"><span class="info-key">Koreksi atm.</span><span class="info-val">GACOS</span></div>
+      <div class="info-row"><span class="info-key">Filter spasial</span><span class="info-val">2 km</span></div>
+      <div class="info-row"><span class="info-key">Filter temporal</span><span class="info-val">12 hari</span></div>
+      <div class="info-row"><span class="info-key">Deramp</span><span class="info-val">Linear (1D)</span></div>
+      <div class="info-row"><span class="info-key">Memory</span><span class="info-val">8000 MB</span></div>
+
+      <div style="font-size:9px;color:var(--acc);text-transform:uppercase;letter-spacing:1px;margin:8px 0 4px;font-weight:700">Masking (Step 15)</div>
+      <div class="info-row"><span class="info-key">Coh avg &gt; 0.05</span><span class="info-val">1.3% termasking</span></div>
+      <div class="info-row"><span class="info-key">N unwrap ≥ 132</span><span class="info-val">0.0%</span></div>
+      <div class="info-row"><span class="info-key">N gap ≤ 10</span><span class="info-val">5.8%</span></div>
+      <div class="info-row"><span class="info-key">STC ≤ 20 mm</span><span class="info-val">1.9%</span></div>
+      <div class="info-row"><span class="info-key">Loop error ≤ 30</span><span class="info-val">35.4%</span></div>
+      <div class="info-row"><span class="info-key">Resid RMS ≤ 8mm</span><span class="info-val">34.1%</span></div>
+      <div class="info-row"><span class="info-key">Total termasking</span><span class="info-val" style="color:#ff8c00">40.5%</span></div>
+      <div class="info-row"><span class="info-key">Total digunakan</span><span class="info-val" style="color:#32be50">59.5%</span></div>
+
+      <div style="font-size:9px;color:var(--muted);text-align:center;margin-top:8px">Area: Surabaya, Jawa Timur · Tim 9</div>
+      <button class="btn-close-info" onclick="document.getElementById('info-popup').style.display='none'">Tutup ✕</button>
+    </div>
+
+    <!-- TIME SERIES -->
+    <div id="ts-panel">
+      <div class="panel-header">
+        <div id="ts-title">📍 Time Series Displacement</div>
+        <span class="close-btn" onclick="closeTsPanel()">✕</span>
+      </div>
+      <canvas id="ts-canvas"></canvas>
+      <div class="ts-chips">
+        <div class="ts-chip">
+          <div class="ts-chip-label">Laju Subsidence</div>
+          <div class="ts-chip-val" id="ts-vel">—</div>
+          <div class="ts-chip-unit">mm/tahun</div>
+        </div>
+        <div class="ts-chip c2">
+          <div class="ts-chip-label">Total Penurunan</div>
+          <div class="ts-chip-val" id="ts-total">—</div>
+          <div class="ts-chip-unit">mm (kumulatif)</div>
+        </div>
+        <div class="ts-chip c3">
+          <div class="ts-chip-label">Data Valid</div>
+          <div class="ts-chip-val" id="ts-valid">—</div>
+          <div class="ts-chip-unit">epoch</div>
+        </div>
+      </div>
+      <div class="ts-note">
+        ⚠ <b style="color:var(--acc)">Laju (mm/thn)</b> ≠ <b style="color:var(--gold)">Total kumulatif (mm)</b><br>
+        Klik titik lain untuk memperbarui grafik
+      </div>
+    </div>
+
+  </div><!-- end map-container -->
+
+  <!-- CONTROLS -->
+  <div id="controls">
+    <div id="date-display">— — —</div>
+    <div class="ctrl-row">
+      <button class="ctrl-btn" onclick="stepEpoch(-1)">◀</button>
+      <button class="ctrl-btn primary" id="play-btn" onclick="togglePlay()">▶ Putar</button>
+      <button class="ctrl-btn" onclick="stepEpoch(1)">▶|</button>
+      <input type="range" id="date-slider" min="0" value="0" step="1">
+      <select id="speed-select" onchange="updateSpeed()">
+        <option value="700">🐢 Lambat</option>
+        <option value="300" selected>▶ Normal</option>
+        <option value="100">⚡ Cepat</option>
+      </select>
+    </div>
+    <div id="epoch-info">Epoch: — / —  |  Geser slider atau klik ▶ Putar</div>
+  </div>
+
+</div><!-- end app -->
+
+<script>
+// ══ CONFIG ══
+const DATA_FILE  = 'defor_sby.csv';
+const BATAS_FILE = 'kecamatan_sby.geojson';
+
+const map = L.map('map', { center:[-7.28,112.73], zoom:11 });
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{ opacity:0.5 }).addTo(map);
+
+let allData=null, circleLayer=L.layerGroup().addTo(map);
+let tsChart=null, playing=false, playInterval=null;
+let vmin=0,vmax=0, velMin=0,velMax=0, velAbsMax=1, dispSubMax=1;
+let currentLayer='subsidence', playSpeed=300;
+
+// ══ COLORMAP LAND SUBSIDENCE ══
+// biru (stabil/0) → hijau → kuning → oranye → merah tua (turun parah)
+function getSubColor(vel, velAbsMax) {
+  const absVel = Math.max(0, vel); // vel positif = subsidence (konvensi LiCSBAS LOS)
+  const norm = Math.max(0, Math.min(1, absVel / velAbsMax));
+  if (norm < 0.25) {
+    const f = norm / 0.25;
+    return `rgb(${Math.round(0+50*f)},${Math.round(100+90*f)},${Math.round(220-140*f)})`;
+  } else if (norm < 0.5) {
+    const f = (norm-0.25)/0.25;
+    return `rgb(${Math.round(50+180*f)},${Math.round(190+30*f)},${Math.round(80-50*f)})`;
+  } else if (norm < 0.75) {
+    const f = (norm-0.5)/0.25;
+    return `rgb(${Math.round(230+10*f)},${Math.round(220-110*f)},${Math.round(30-20*f)})`;
+  } else {
+    const f = (norm-0.75)/0.25;
+    return `rgb(${Math.round(240-100*f)},${Math.round(110-100*f)},10)`;
+  }
+}
+
+// ══ COLORMAP DISPLACEMENT (diverging) ══
+function getDispColor(val, min, max) {
+  const norm = Math.max(0, Math.min(1, (val-min)/(max-min)));
+  if (norm < 0.25) {
+    const f=norm/0.25;
+    return `rgb(${Math.round(26+100*f)},${Math.round(107+125*f)},255)`;
+  } else if (norm < 0.5) {
+    const f=(norm-0.25)/0.25;
+    return `rgb(${Math.round(126+129*f)},${Math.round(232+20*f)},${Math.round(255-10*f)})`;
+  } else if (norm < 0.75) {
+    const f=(norm-0.5)/0.25;
+    return `rgb(255,${Math.round(252-82*f)},${Math.round(245-210*f)})`;
+  } else {
+    const f=(norm-0.75)/0.25;
+    return `rgb(255,${Math.round(170-136*f)},${Math.round(35-35*f)})`;
+  }
+}
+
+function formatDate(d){ return `${d.slice(0,4)}-${d.slice(4,6)}-${d.slice(6,8)}`; }
+
+// ══ PARSE CSV ══
+function parseCSV(text) {
+  const lines = text.trim().split('\n').map(l=>l.replace(/\r$/,''));
+  const headers = lines[0].split(',').map(h=>h.trim());
+  const datePattern = /^2\d{7}$/;
+  const dateHeaders = headers.filter(h=>datePattern.test(h));
+  const iLat=headers.indexOf('latitude'), iLon=headers.indexOf('longitude'), iVel=headers.indexOf('velocity');
+  const iCoh=headers.indexOf('coh_avg');
+
+  const points=[];
+  for(let i=1;i<lines.length;i++){
+    const row=lines[i].split(',');
+    if(row.length<iVel+1) continue;
+    const lat=parseFloat(row[iLat]), lon=parseFloat(row[iLon]), vel=parseFloat(row[iVel]);
+    if(isNaN(lat)||isNaN(lon)||isNaN(vel)) continue;
+    const ts=dateHeaders.map(d=>{
+      const v=parseFloat(row[headers.indexOf(d)]);
+      return isNaN(v)?null:v;
+    });
+    const coh=iCoh>=0?parseFloat(row[iCoh]):NaN;
+    points.push({lat,lon,vel,ts,coh:isNaN(coh)?null:coh});
+  }
+  return {dates:dateHeaders, points};
+}
+
+// ══ UPDATE LEGEND ══
+function updateLegend(type) {
+  const bar = document.getElementById('legend-bar');
+  const ticks = document.getElementById('legend-ticks');
+  const sub = document.getElementById('legend-sub');
+
+  const subColors = ['#0064dc','#32be50','#e6dc1e','#f06e0a','#8c0a0a'];
+  const subGrad = 'linear-gradient(to right,#0064dc,#32be50,#e6dc1e,#f06e0a,#8c0a0a)';
+
+  if (type === 'subsidence') {
+    document.getElementById('legend-title').textContent = 'Land Subsidence (mm/thn)';
+    bar.style.background = subGrad;
+    const tickVals = [0,1,2,3,4].map(i => velAbsMax * i / 4);
+    ticks.innerHTML = tickVals.map((v,i)=>
+      `<span style="color:${subColors[i]}">${v.toFixed(0)}</span>`).join('');
+    sub.innerHTML = '<span>◎ Stabil (0)</span><span>▼ Turun Parah</span>';
+
+  } else if (type === 'disp-sub') {
+    document.getElementById('legend-title').textContent = 'Displacement Penurunan (mm)';
+    bar.style.background = subGrad;
+    const absMax = dispSubMax;
+    const tickVals = [0,1,2,3,4].map(i => absMax * i / 4);
+    ticks.innerHTML = tickVals.map((v,i)=>
+      `<span style="color:${subColors[i]}">${v.toFixed(0)}</span>`).join('');
+    sub.innerHTML = '<span>◎ 0 mm</span><span>▼ Turun Maks</span>';
+
+  } else {
+    document.getElementById('legend-title').textContent = 'Displacement Kumulatif (mm)';
+    bar.style.background = 'linear-gradient(to right,#1a6bff,#00d4ff,#ffffff,#ffaa00,#ff2222)';
+    const dispColors = ['#1a6bff','#00d4ff','#ffffff','#ffaa00','#ff2222'];
+    const tickVals = [0,1,2,3,4].map(i => vmin + (vmax-vmin)*i/4);
+    ticks.innerHTML = tickVals.map((v,i)=>
+      `<span style="color:${dispColors[i]}">${v.toFixed(0)}</span>`).join('');
+    sub.innerHTML = '<span>▼ Turun</span><span>▲ Naik</span>';
+  }
+}
+
+// ══ RENDER EPOCH ══
+function renderEpoch(idx) {
+  if(!allData) return;
+  circleLayer.clearLayers();
+  const {dates,points}=allData;
+  const dateStr=formatDate(dates[idx]);
+  document.getElementById('date-display').textContent=dateStr;
+  document.getElementById('stat-date').textContent=dateStr;
+  document.getElementById('epoch-info').textContent=`Epoch: ${idx+1} / ${dates.length}  |  ${dateStr}`;
+
+  let count=0;
+  points.forEach(pt=>{
+    let color,radius;
+    const val=pt.ts[idx];  // deklarasi di luar if/else
+
+    if(currentLayer==='subsidence'){
+      color=getSubColor(pt.vel, velAbsMax);
+      radius=Math.max(3,Math.min(8,3+Math.max(0,pt.vel)/4));
+    } else if(currentLayer==='disp-sub'){
+      // val POSITIF = turun (konvensi LiCSBAS). Nilai negatif (naik) → clamp ke 0 (biru)
+      if(val===null||val===undefined) return;
+      const clampedVal=Math.max(0, val); // nilai negatif (uplift) → 0
+      const absMax=dispSubMax;
+      color=getSubColor(clampedVal, absMax); // langsung pakai val positif
+      radius=Math.max(3,Math.min(8,3+clampedVal/10));
+    } else {
+      if(val===null||val===undefined) return;
+      color=getDispColor(val,vmin,vmax);
+      radius=4;
+    }
+
+    const absVelStr = Math.abs(pt.vel).toFixed(1);
+    const valStr=(val!==null&&val!==undefined)?val.toFixed(1)+' mm':'—';
+    const cohStr=pt.coh!==null?pt.coh.toFixed(3):'—';
+
+    const circle=L.circleMarker([pt.lat,pt.lon],{
+      radius, fillColor:color, color:'transparent', fillOpacity:0.92
+    });
+
+    circle.bindTooltip(
+      `<div style="font-size:11px;line-height:1.8;font-family:'Poppins',sans-serif">
+        <b style="color:#c8ff72;font-size:12px">${absVelStr} mm/thn</b>
+        <span style="color:#4a7a5a;font-size:9px"> subsidence</span><br>
+        Displacement: <b style="color:#f5c842">${valStr}</b><br>
+        Koherensi: <span style="color:#5de08a">${cohStr}</span><br>
+        <span style="color:#4a7a5a;font-size:10px">${pt.lat.toFixed(4)}°, ${pt.lon.toFixed(4)}°</span>
+      </div>`,
+      {className:'tt-green',direction:'top',offset:[0,-5]}
+    );
+    circle.on('click',()=>showTimeSeries(pt));
+    circleLayer.addLayer(circle);
+    count++;
+  });
+
+  document.getElementById('pt-count').textContent=count.toLocaleString('id-ID');
+}
+
+// ══ TIME SERIES ══
+function showTimeSeries(pt) {
+  document.getElementById('ts-panel').style.display='block';
+  document.getElementById('ts-title').textContent=
+    `📍 ${pt.lat.toFixed(4)}°, ${pt.lon.toFixed(4)}°`;
+
+  const validVals=pt.ts.filter(v=>v!==null);
+  document.getElementById('ts-vel').textContent=Math.abs(pt.vel).toFixed(1);
+  document.getElementById('ts-total').textContent=
+    validVals.length?Math.max(...validVals).toFixed(1):'—';
+  document.getElementById('ts-valid').textContent=validVals.length;
+
+  const labels=allData.dates.map(formatDate);
+  const values=pt.ts.map(v=>v===null?null:parseFloat(v.toFixed(2)));
+
+  if(tsChart) tsChart.destroy();
+  tsChart=new Chart(document.getElementById('ts-canvas').getContext('2d'),{
+    type:'line',
+    data:{
+      labels,
+      datasets:[{
+        data:values,
+        borderColor:'#27a352',
+        backgroundColor:'rgba(39,163,82,0.08)',
+        borderWidth:1.8,
+        pointRadius:0,
+        pointHoverRadius:4,
+        fill:true,
+        spanGaps:true,
+        tension:0.3
+      }]
+    },
+    options:{
+      responsive:false,
+      animation:{duration:300},
+      plugins:{
+        legend:{display:false},
+        tooltip:{
+          mode:'index',intersect:false,
+          backgroundColor:'rgba(3,13,7,0.95)',
+          borderColor:'rgba(39,163,82,0.5)',borderWidth:1,
+          titleColor:'#c8ff72',bodyColor:'#a8f0c2',
+          callbacks:{label:ctx=>`${ctx.parsed.y?.toFixed(1)} mm`}
+        }
+      },
+      scales:{
+        x:{ticks:{color:'#2d5038',maxTicksLimit:6,font:{size:9,family:'Poppins'}},grid:{color:'rgba(39,163,82,0.06)'}},
+        y:{
+          ticks:{color:'#2d5038',font:{size:9,family:'Poppins'},callback:v=>`${v} mm`},
+          grid:{color:'rgba(39,163,82,0.06)'},
+          title:{display:true,text:'Displacement kumulatif (mm)',color:'#4a7a5a',font:{size:9,family:'Poppins'}}
+        }
+      }
+    }
+  });
+}
+
+function closeTsPanel(){ document.getElementById('ts-panel').style.display='none'; }
+
+// ══ LAYER SWITCH ══
+function setLayer(type){
+  currentLayer=type;
+  document.getElementById('btn-sub').classList.toggle('active',type==='subsidence');
+  document.getElementById('btn-disp-sub').classList.toggle('active',type==='disp-sub');
+  document.getElementById('btn-disp').classList.toggle('active',type==='displacement');
+  updateLegend(type);
+  if(allData) renderEpoch(parseInt(document.getElementById('date-slider').value));
+}
+
+function resetLayer(){
+  setLayer('subsidence');
+  document.getElementById('date-slider').value=0;
+  if(allData){ renderEpoch(0); }
+  map.setView([-7.28,112.73],11);
+}
+
+function toggleInfo(){
+  const el=document.getElementById('info-popup');
+  el.style.display=el.style.display==='block'?'none':'block';
+}
+
+// ══ PLAY ══
+function togglePlay(){
+  playing=!playing;
+  const btn=document.getElementById('play-btn');
+  if(playing){
+    btn.textContent='⏸ Jeda'; btn.className='ctrl-btn';
+    const slider=document.getElementById('date-slider');
+    playInterval=setInterval(()=>{
+      let v=parseInt(slider.value)+1;
+      if(v>=allData.dates.length) v=0;
+      slider.value=v; renderEpoch(v);
+    },playSpeed);
+  } else {
+    btn.textContent='▶ Putar'; btn.className='ctrl-btn primary';
+    clearInterval(playInterval);
+  }
+}
+
+function stepEpoch(dir){
+  if(!allData) return;
+  const slider=document.getElementById('date-slider');
+  let v=Math.max(0,Math.min(allData.dates.length-1,parseInt(slider.value)+dir));
+  slider.value=v; renderEpoch(v);
+}
+
+function updateSpeed(){
+  playSpeed=parseInt(document.getElementById('speed-select').value);
+  if(playing){ clearInterval(playInterval); playing=false; togglePlay(); }
+}
+
+document.getElementById('date-slider').addEventListener('input',function(){
+  if(allData) renderEpoch(parseInt(this.value));
+});
+
+// ══ LOAD DATA ══
+Promise.allSettled([
+  fetch(DATA_FILE).then(r=>{ if(!r.ok) throw new Error(DATA_FILE+' tidak ditemukan'); return r.text(); }),
+  fetch(BATAS_FILE).then(r=>{ if(!r.ok) throw new Error(BATAS_FILE+' tidak ditemukan'); return r.json(); })
+]).then(([csvResult, geoResult])=>{
+
+  // — Batas kecamatan —
+  if(geoResult.status==='fulfilled'){
+    L.geoJSON(geoResult.value,{
+      style:{
+        color:'#c8ff72',
+        weight:1.8,
+        fillOpacity:0,
+        dashArray:'5,4',
+        opacity:0.7
+      },
+      onEachFeature:(feature,layer)=>{
+        const name=feature.properties.KECAMATAN||feature.properties.kecamatan||
+                   feature.properties.name||feature.properties.NAME||'';
+        if(name){
+          layer.bindTooltip(`<span style="font-family:Poppins;font-size:10px;font-weight:600;color:#c8ff72">${name}</span>`,
+            {permanent:false,className:'tt-green',direction:'center'});
+        }
+      }
+    }).addTo(map);
+    // Fit ke batas kecamatan
+    try{
+      const bLayer=L.geoJSON(geoResult.value);
+      map.fitBounds(bLayer.getBounds(),{padding:[30,30]});
+    }catch(e){}
+  } else {
+    console.warn('kecamatan_sby.geojson tidak dimuat:',geoResult.reason);
+  }
+
+  // — Data CSV —
+  if(csvResult.status==='fulfilled'){
+    allData=parseCSV(csvResult.value);
+    document.getElementById('loading').style.display='none';
+
+    const slider=document.getElementById('date-slider');
+    slider.max=allData.dates.length-1;
+    slider.value=0;
+    document.getElementById('stat-epochs').textContent=allData.dates.length;
+
+    // Range displacement
+    const allVals=allData.points.flatMap(p=>p.ts.filter(v=>v!==null)).sort((a,b)=>a-b);
+    if(allVals.length){
+      const absmax=Math.max(
+        Math.abs(allVals[Math.floor(allVals.length*0.02)]||0),
+        Math.abs(allVals[Math.floor(allVals.length*0.98)]||0)
+      );
+      vmin=-absmax; vmax=absmax;
+    }
+
+    // Range velocity
+    const vels=allData.points.map(p=>p.vel);
+    velMin=Math.min(...vels);
+    velMax=Math.max(...vels);
+    // Untuk subsidence: vel POSITIF = turun (konvensi LiCSBAS). Persentil 98% dari vel>0
+    
+    const subVelsAbs=vels.filter(v=>v>0).sort((a,b)=>a-b);
+    velAbsMax = subVelsAbs.length
+      ? subVelsAbs[Math.floor(subVelsAbs.length*0.98)]
+      : Math.abs(velMin)||1;
+
+    // dispSubMax: persentil 98% dari nilai ts positif (penurunan saja)
+    const posVals=allData.points.flatMap(p=>p.ts.filter(v=>v!==null&&v>0)).sort((a,b)=>a-b);
+    dispSubMax = posVals.length
+      ? posVals[Math.floor(posVals.length*0.98)]
+      : vmax||1;
+
+    // Subsidence maks ditampilkan sebagai angka POSITIF
+    document.getElementById('stat-max').textContent=velAbsMax.toFixed(1);
+
+    // Default: land subsidence
+    setLayer('subsidence');
+    renderEpoch(0);
+
+  } else {
+    document.getElementById('loading').innerHTML=`
+      <p style="color:#ff6b35;font-size:15px">⚠ Gagal Memuat Data</p>
+      <small style="color:#4a7a5a;line-height:1.9">
+        Pastikan file ada di folder yang sama:<br>
+        <b style="color:#a8f0c2">defor_sby.csv</b><br>
+        <b style="color:#a8f0c2">kecamatan_sby.geojson</b><br>
+        <b style="color:#a8f0c2">logo_subtrack.png</b><br><br>
+        <span style="color:#ff6b35">${csvResult.reason}</span>
+      </small>`;
+  }
+});
+</script>
+</body>
+</html>
